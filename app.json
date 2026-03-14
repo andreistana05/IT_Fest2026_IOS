@@ -1,5 +1,6 @@
 {
   "expo": {
+    "projectId": "a3b2c1d4-5678-90ab-cdef-1234567890ab",
     "name": "testapp",
     "slug": "testapp",
     "version": "1.0.0",
@@ -43,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7611f775-85f9-45a8-baa8-7d6871d1f33e"
+      }
+    },
+    "owner": "andreistana05"
   }
 }
