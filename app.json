@@ -1,12 +1,12 @@
 {
   "expo": {
     "projectId": "a3b2c1d4-5678-90ab-cdef-1234567890ab",
-    "name": "testapp",
-    "slug": "testapp",
+    "name": "SafeAlert",
+    "slug": "SafeAlert",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "testapp",
+    "scheme": "safealert",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
