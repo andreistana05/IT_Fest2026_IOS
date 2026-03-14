@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth, db } from './lib/firebase';
+import { auth, saveUserProfile } from './lib/firebase';
 
 export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -30,13 +30,13 @@ export default function Register() {
       const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCred.user;
 
-      // Save profile to Firestore `users/{uid}`
-      await setDoc(doc(db, 'users', user.uid), {
+      // Save profile to Firestore `users/{uid}` using helper
+      await saveUserProfile({
         uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || null,
-        phoneNumber: phoneNumber || null,
-        createdAt: serverTimestamp(),
+        email: user.email || email.trim(),
+        name: name || user.displayName || null,
+        phone: phoneNumber || null,
+        fcmToken: null,
       });
 
       router.replace('/');
@@ -73,6 +73,13 @@ export default function Register() {
         value={phoneNumber}
         onChangeText={setPhoneNumber}
         keyboardType="phone-pad"
+        style={styles.input}
+      />
+
+      <TextInput
+        placeholder="Full name (optional)"
+        value={name}
+        onChangeText={setName}
         style={styles.input}
       />
 

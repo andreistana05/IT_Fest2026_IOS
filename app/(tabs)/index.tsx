@@ -79,9 +79,14 @@ export default function App() {
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity style={[styles.button, { width: '100%', backgroundColor: '#e74c3c' }]} onPress={() => { setSidebarVisible(false); signOutUser(); }}>
-              <Text style={styles.buttonText}>Sign out</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={[styles.button, { width: '100%', backgroundColor: '#3498db' }]} onPress={() => { setSidebarVisible(false); router.push('/profile'); }}>
+                <Text style={styles.buttonText}>View profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, { width: '100%', backgroundColor: '#e74c3c' }]} onPress={() => { setSidebarVisible(false); signOutUser(); }}>
+                <Text style={styles.buttonText}>Sign out</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </Modal>
