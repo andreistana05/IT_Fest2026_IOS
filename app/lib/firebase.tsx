@@ -1,6 +1,7 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { doc, getFirestore, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Firebase project config (from your google-services JSON).
 const firebaseConfig = {
@@ -18,6 +19,7 @@ if (!getApps().length) {
 
 export const auth = getAuth();
 export const db = getFirestore();
+export const storage = getStorage();
 
 export async function saveUserProfile(opts: {
   uid: string;
@@ -25,9 +27,10 @@ export async function saveUserProfile(opts: {
   name?: string | null;
   phone?: string | null;
   fcmToken?: string | null;
+  photoURL?: string | null;
   createdAt?: number | any;
 }) {
-  const { uid, email = null, name = null, phone = null, fcmToken = null, createdAt } = opts;
+  const { uid, email = null, name = null, phone = null, fcmToken = null, photoURL = null, createdAt } = opts;
   const ref = doc(db, 'users', uid);
 
   const createdAtValue = typeof createdAt === 'number' && createdAt > 0
@@ -40,6 +43,7 @@ export async function saveUserProfile(opts: {
     name,
     phone,
     fcmToken,
+    photoURL,
     createdAt: createdAtValue,
   } as any;
 
