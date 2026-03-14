@@ -6,6 +6,7 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { saveAlert } from '../alerts';
 import { useAuth } from '../lib/auth';
 import { db } from '../lib/firebase';
+import { registerPushToken } from '../lib/push';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -25,6 +26,12 @@ export default function App() {
   const responseListener = useRef<any>(null);
   const router = useRouter();
   const { user, signOutUser, loading: authLoading } = useAuth();
+
+  // Register push token whenever a user signs in
+  useEffect(() => {
+    if (!user) return;
+    registerPushToken(user.uid).catch(e => console.warn('[push] Registration failed', e));
+  }, [user?.uid]);
 
   // Live alert count badge
   useEffect(() => {
