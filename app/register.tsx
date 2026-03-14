@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, saveUserProfile } from './lib/firebase';
 
 export default function Register() {
@@ -10,12 +10,12 @@ export default function Register() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleRegister() {
     setLoading(true);
     try {
-      // simple validation
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
         Alert.alert('Invalid email', 'Please enter a valid email address');
         setLoading(false);
@@ -30,7 +30,6 @@ export default function Register() {
       const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCred.user;
 
-      // Save profile to Firestore `users/{uid}` using helper
       await saveUserProfile({
         uid: user.uid,
         email: user.email || email.trim(),
@@ -47,58 +46,116 @@ export default function Register() {
     }
   }
 
+  const inputStyle = (field: string) => [styles.input, focused === field && styles.inputFocused];
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Text style={styles.appName}>FallGuard</Text>
+          <Text style={styles.subtitle}>Create your alert account</Text>
+        </View>
 
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={styles.input}
-      />
+        <View style={styles.form}>
+          <Text style={styles.sectionTitle}>Required information</Text>
 
-      <TextInput
-        placeholder="Password (min 6 chars)"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Email address <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              placeholder="e.g. yourname@email.com"
+              placeholderTextColor="#aaa"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={inputStyle('email')}
+              onFocus={() => setFocused('email')}
+              onBlur={() => setFocused(null)}
+            />
+            <Text style={styles.hint}>Used to sign in and receive alerts</Text>
+          </View>
 
-      <TextInput
-        placeholder="Phone number (optional, for SMS)"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-        style={styles.input}
-      />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Password <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              placeholder="Choose a strong password"
+              placeholderTextColor="#aaa"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              style={inputStyle('password')}
+              onFocus={() => setFocused('password')}
+              onBlur={() => setFocused(null)}
+            />
+            <Text style={styles.hint}>Must be at least 6 characters long</Text>
+          </View>
 
-      <TextInput
-        placeholder="Full name (optional)"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-      />
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>Optional information</Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create account'}</Text>
-      </TouchableOpacity>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Full name</Text>
+            <TextInput
+              placeholder="e.g. John Doe"
+              placeholderTextColor="#aaa"
+              value={name}
+              onChangeText={setName}
+              style={inputStyle('name')}
+              onFocus={() => setFocused('name')}
+              onBlur={() => setFocused(null)}
+            />
+            <Text style={styles.hint}>Displayed on your profile</Text>
+          </View>
 
-      <TouchableOpacity onPress={() => router.push('/login')}>
-        <Text style={styles.link}>Already have an account? Sign in</Text>
-      </TouchableOpacity>
-    </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Your phone number</Text>
+            <TextInput
+              placeholder="e.g. +40712345678"
+              placeholderTextColor="#aaa"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              style={inputStyle('phone')}
+              onFocus={() => setFocused('phone')}
+              onBlur={() => setFocused(null)}
+            />
+            <Text style={styles.hint}>Strongly recommended — this is how others link you as their emergency contact so you get alerted when they fall. Include country code (e.g. +40).</Text>
+          </View>
+
+          <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleRegister} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Create account'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Already have an account?</Text>
+          <TouchableOpacity onPress={() => router.push('/login')}>
+            <Text style={styles.link}> Sign in here</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: '#f5f5f5' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
-  input: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 12 },
-  button: { backgroundColor: '#2ecc71', padding: 14, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  link: { color: '#34495e', textAlign: 'center', marginTop: 8 }
+  container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: '#f0f4f8' },
+  header: { alignItems: 'center', marginBottom: 28 },
+  appName: { fontSize: 32, fontWeight: '800', color: '#2c3e50', letterSpacing: 0.5 },
+  subtitle: { fontSize: 16, color: '#7f8c8d', marginTop: 6 },
+  form: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: '#95a5a6', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+  divider: { height: 1, backgroundColor: '#ecf0f1', marginVertical: 16 },
+  fieldGroup: { marginBottom: 14 },
+  label: { fontSize: 13, fontWeight: '600', color: '#34495e', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
+  required: { color: '#e74c3c' },
+  input: { backgroundColor: '#f7f9fb', padding: 14, borderRadius: 10, fontSize: 16, color: '#111', borderWidth: 1.5, borderColor: '#dce1e7', lineHeight: 20 },
+  inputFocused: { borderColor: '#2ecc71', backgroundColor: '#fff' },
+  hint: { fontSize: 12, color: '#95a5a6', marginTop: 5 },
+  button: { backgroundColor: '#2ecc71', padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  buttonDisabled: { opacity: 0.7 },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24 },
+  footerText: { color: '#7f8c8d', fontSize: 14 },
+  link: { color: '#2ecc71', fontWeight: '600', fontSize: 14 },
 });
