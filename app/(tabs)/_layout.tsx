@@ -30,6 +30,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="nearbyAlerts"
+        options={{
+          title: 'In apropiere',
+          tabBarIcon: ({ color }) => (
+      <IconSymbol name="map" color={color} />
+    ),
+  }}
+/>
     </Tabs>
   );
 }

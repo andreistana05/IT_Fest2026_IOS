@@ -1,156 +1,54 @@
-import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useAuth } from "../lib/auth";
+﻿import { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import * as Location from 'expo-location';
+import { sendEmergencySMS } from '../../services/smsService';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+export default function Index() {
+  const [loading, setLoading] = useState(false);
 
-// Push registration removed (not used in device-SMS workflow)
+  const testSMS = async () => {
+    setLoading(true);
 
-export default function App() {
-  const [status, setStatus] = useState("Sistem activ - Monitorizare...");
-  const [sidebarVisible, setSidebarVisible] = useState(false);
-  const notificationListener = useRef<any>(null);
-  const responseListener = useRef<any>(null);
-  const router = useRouter();
-  const { user, signOutUser, loading: authLoading } = useAuth();
+    try {
+      // Request location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Eroare', 'Permisiune locatie refuzata');
+        return;
+      }
 
-  useEffect(() => {
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
-        setStatus("Alerta primita — verificati contactele");
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
       });
 
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        // handle interaction
-      });
+      const location = {
+        lat: loc.coords.latitude,
+        lng: loc.coords.longitude,
+        address: 'Timisoara, Romania',
+        mapsLink: `https://maps.google.com/?q=${loc.coords.latitude},${loc.coords.longitude}`,
+      };
 
-    return () => {
-      if (
-        notificationListener.current &&
-        typeof notificationListener.current.remove === "function"
-      ) {
-        notificationListener.current.remove();
-      }
-      if (
-        responseListener.current &&
-        typeof responseListener.current.remove === "function"
-      ) {
-        responseListener.current.remove();
-      }
-    };
-  }, []);
+      // Contacte de test — înlocuiești cu numărul tău real
+      const contacts = [{ name: 'Test', phone: '+0754572103' }];
 
-  // Push registration and test notification functions removed
+      await sendEmergencySMS(contacts, location, 'fall');
+    } catch (error) {
+      const err = error as Error;
+      Alert.alert('Eroare', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>FallGuard Connect (iOS)</Text>
+      <Text style={styles.title}>Test SMS + Locatie</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.statusLabel}>Stare sistem:</Text>
-        <Text style={styles.statusText}>{status}</Text>
-        {/* Expo push token display removed */}
-        <Text style={{ marginTop: 10, color: "#34495e" }}>User:</Text>
-        <Text style={{ fontSize: 12, color: "#7f8c8d" }}>
-          {authLoading ? "Loading..." : (user?.email ?? "Not signed in")}
+      <TouchableOpacity style={styles.btn} onPress={testSMS}>
+        <Text style={styles.btnText}>
+          {loading ? 'Se trimite...' : 'Trimite SMS Test'}
         </Text>
-      </View>
-
-      {/* Push token registration and test notification buttons removed */}
-
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={() => setSidebarVisible(true)}
-      >
-        <Text style={styles.menuText}>☰</Text>
       </TouchableOpacity>
-
-      <Modal transparent visible={sidebarVisible} animationType="slide">
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={() => setSidebarVisible(false)}
-        />
-        <View style={styles.sidebar}>
-          <Text style={styles.sidebarTitle}>Menu</Text>
-          {!user ? (
-            <>
-              <TouchableOpacity
-                style={[styles.button, { width: "100%" }]}
-                onPress={() => {
-                  setSidebarVisible(false);
-                  router.push("/login");
-                }}
-              >
-                <Text style={styles.buttonText}>Sign In</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  { width: "100%", backgroundColor: "#9b59b6" },
-                ]}
-                onPress={() => {
-                  setSidebarVisible(false);
-                  router.push("/register");
-                }}
-              >
-                <Text style={styles.buttonText}>Register</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  { width: "100%", backgroundColor: "#3498db" },
-                ]}
-                onPress={() => {
-                  setSidebarVisible(false);
-                  router.push("/profile");
-                }}
-              >
-                <Text style={styles.buttonText}>View profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  { width: "100%", backgroundColor: "#e74c3c" },
-                ]}
-                onPress={() => {
-                  setSidebarVisible(false);
-                  signOutUser();
-                }}
-              >
-                <Text style={styles.buttonText}>Sign out</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </Modal>
-
-      {user ? (
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.navButton,
-            { backgroundColor: "#e74c3c" },
-          ]}
-          onPress={() => signOutUser()}
-        >
-          <Text style={styles.buttonText}>Sign out</Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -158,51 +56,25 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 30,
-    color: "#2c3e50",
+    fontSize: 22,
+    fontWeight: '500',
+    marginBottom: 32,
+    color: '#111',
   },
-  card: {
-    width: "100%",
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 15,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+  btn: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 12,
   },
-  statusLabel: { fontSize: 14, color: "#7f8c8d" },
-  statusText: { fontSize: 18, fontWeight: "600", color: "#27ae60" },
-  button: {
-    marginTop: 20,
-    backgroundColor: "#3498db",
-    padding: 15,
-    borderRadius: 10,
-    width: "100%",
-    alignItems: "center",
+  btnText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  buttonText: { color: "#fff", fontWeight: "bold" },
-  navButton: { marginTop: 10 },
-  menuButton: { position: "absolute", top: 40, right: 20, zIndex: 20 },
-  menuText: { fontSize: 28, color: "#2c3e50" },
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  sidebar: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 260,
-    padding: 20,
-    backgroundColor: "#fff",
-  },
-  sidebarTitle: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
 });
