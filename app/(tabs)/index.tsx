@@ -47,6 +47,8 @@ export default function App() {
           contactPhone: data?.contactPhone ?? null,
           message: body ?? data?.message ?? null,
           receivedAt: Date.now(),
+          latitude: typeof data?.latitude === 'number' ? data.latitude : null,
+          longitude: typeof data?.longitude === 'number' ? data.longitude : null,
         }).catch(e => console.warn('Failed to save alert', e));
       }
     });
@@ -158,6 +160,11 @@ export default function App() {
               <Text style={styles.actionHint}>View all past fall alerts received</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#8e44ad' }]} onPress={() => router.push('/fall-map')}>
+              <Text style={styles.actionText}>Fall map</Text>
+              <Text style={styles.actionHint}>See where falls occurred on a map</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#e74c3c' }]} onPress={() => signOutUser()}>
               <Text style={styles.actionText}>Sign out</Text>
               <Text style={styles.actionHint}>End your session</Text>
@@ -218,6 +225,9 @@ export default function App() {
                     </View>
                   )}
                 </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#8e44ad' }]} onPress={() => { setSidebarVisible(false); router.push('/fall-map'); }}>
+                <Text style={styles.sidebarItemText}>Fall Map</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#3498db' }]} onPress={() => { setSidebarVisible(false); router.push('/profile'); }}>
                 <Text style={styles.sidebarItemText}>View Profile</Text>

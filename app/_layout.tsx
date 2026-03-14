@@ -23,6 +23,7 @@ export default function RootLayout() {
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />
           <Stack.Screen name="contacts" options={{ title: 'Contacts' }} />
           <Stack.Screen name="alerts" options={{ title: 'Alert History' }} />
+          <Stack.Screen name="fall-map" options={{ title: 'Fall Map' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style="auto" />

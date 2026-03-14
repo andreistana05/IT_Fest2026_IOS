@@ -10,6 +10,8 @@ export type FallAlert = {
   contactPhone: string | null;
   message: string | null;
   receivedAt: number;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export default function AlertsScreen() {
