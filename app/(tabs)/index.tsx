@@ -1,8 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { saveAlert } from '../alerts';
 import { useAuth } from '../lib/auth';
+import { db } from '../lib/firebase';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,15 +19,36 @@ Notifications.setNotificationHandler({
 
 export default function App() {
   const [lastAlert, setLastAlert] = useState<string | null>(null);
+  const [alertCount, setAlertCount] = useState(0);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
   const router = useRouter();
   const { user, signOutUser, loading: authLoading } = useAuth();
 
+  // Live alert count badge
   useEffect(() => {
-    notificationListener.current = Notifications.addNotificationReceivedListener(() => {
+    if (!user) { setAlertCount(0); return; }
+    const col = collection(db, 'users', user.uid, 'alerts');
+    const q = query(col, orderBy('receivedAt', 'desc'));
+    const unsub = onSnapshot(q, snap => setAlertCount(snap.size));
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data as any;
+      const body = notification.request.content.body;
       setLastAlert(new Date().toLocaleTimeString());
+
+      if (user) {
+        saveAlert(user.uid, {
+          contactName: data?.contactName ?? null,
+          contactPhone: data?.contactPhone ?? null,
+          message: body ?? data?.message ?? null,
+          receivedAt: Date.now(),
+        }).catch(e => console.warn('Failed to save alert', e));
+      }
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
@@ -122,6 +146,18 @@ export default function App() {
               <Text style={styles.actionHint}>Add people whose falls you want to be alerted about</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#e67e22' }]} onPress={() => router.push('/alerts')}>
+              <View style={styles.actionRow}>
+                <Text style={styles.actionText}>Alert history</Text>
+                {alertCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{alertCount}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.actionHint}>View all past fall alerts received</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#e74c3c' }]} onPress={() => signOutUser()}>
               <Text style={styles.actionText}>Sign out</Text>
               <Text style={styles.actionHint}>End your session</Text>
@@ -173,6 +209,16 @@ export default function App() {
               <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#16a085' }]} onPress={() => { setSidebarVisible(false); router.push('/contacts'); }}>
                 <Text style={styles.sidebarItemText}>Monitored Contacts</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#e67e22' }]} onPress={() => { setSidebarVisible(false); router.push('/alerts'); }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.sidebarItemText}>Alert History</Text>
+                  {alertCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{alertCount}</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#3498db' }]} onPress={() => { setSidebarVisible(false); router.push('/profile'); }}>
                 <Text style={styles.sidebarItemText}>View Profile</Text>
               </TouchableOpacity>
@@ -223,8 +269,11 @@ const styles = StyleSheet.create({
   infoBody: { fontSize: 14, color: '#555', lineHeight: 21 },
 
   actionButton: { padding: 18, borderRadius: 14, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
+  actionRow: { flexDirection: 'row', alignItems: 'center' },
   actionText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   actionHint: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 },
+  badge: { backgroundColor: '#fff', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 },
+  badgeText: { color: '#e67e22', fontSize: 11, fontWeight: '800' },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sidebar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 260, padding: 24, paddingTop: 60, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 2, height: 0 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 10 },

@@ -22,6 +22,7 @@ export default function RootLayout() {
           <Stack.Screen name="register" options={{ title: 'Create Account' }} />
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />
           <Stack.Screen name="contacts" options={{ title: 'Contacts' }} />
+          <Stack.Screen name="alerts" options={{ title: 'Alert History' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style="auto" />
