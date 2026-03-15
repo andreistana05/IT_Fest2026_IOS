@@ -20,11 +20,12 @@ export default function ProfileScreen() {
       return;
     }
 
+    const currentUser = user; // capture so TypeScript knows it's non-null inside async load()
     let mounted = true;
     async function load() {
       setLoading(true);
       try {
-        const ref = doc(db, 'users', user.uid);
+        const ref = doc(db, 'users', currentUser.uid);
         const snap = await getDoc(ref);
         if (!mounted) return;
         if (snap.exists()) {
@@ -32,15 +33,15 @@ export default function ProfileScreen() {
           setProfile(data);
           // Heal fields that were wiped by the old push-token bug
           const fixes: any = {};
-          if (!data.email && user.email) fixes.email = user.email;
-          if (!data.name && user.displayName) fixes.name = user.displayName;
+          if (!data.email && currentUser.email) fixes.email = currentUser.email;
+          if (!data.name && currentUser.displayName) fixes.name = currentUser.displayName;
           if (Object.keys(fixes).length > 0) {
             updateDoc(ref, fixes).catch(() => {});
             if (mounted) setProfile((p: any) => ({ ...p, ...fixes }));
           }
         } else {
           // Registration write never reached Firestore — seed it now from Auth data
-          const seed = await saveUserProfile({ uid: user.uid, email: user.email, name: user.displayName });
+          const seed = await saveUserProfile({ uid: currentUser.uid, email: currentUser.email, name: currentUser.displayName });
           if (mounted) setProfile(seed);
         }
       } catch (e) {
@@ -66,7 +67,7 @@ export default function ProfileScreen() {
       } else {
         await saveUserProfile({ uid: user.uid, email: user.email, name: updates.name, phone: updates.phone });
       }
-      if (editName.trim()) await updateProfile(auth.currentUser!, { displayName: editName.trim() });
+      if (editName.trim() && auth.currentUser) await updateProfile(auth.currentUser, { displayName: editName.trim() });
       setProfile((p: any) => ({ ...(p || {}), ...updates }));
       setEditing(false);
     } catch (e: any) {
