@@ -1,8 +1,9 @@
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocationTracking } from '../../hooks/useLocationTracking';
 import { saveAlert } from '../alerts';
 import { useAuth } from '../lib/auth';
 import { db } from '../lib/firebase';
@@ -21,11 +22,48 @@ Notifications.setNotificationHandler({
 export default function App() {
   const [lastAlert, setLastAlert] = useState<string | null>(null);
   const [alertCount, setAlertCount] = useState(0);
-  const [sidebarVisible, setSidebarVisible] = useState(false);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
   const router = useRouter();
   const { user, signOutUser, loading: authLoading } = useAuth();
+  const location = useLocationTracking(user?.uid ?? null);
+
+  async function shareLocation() {
+    if (location.latitude == null || location.longitude == null) {
+      Alert.alert('Location unavailable', 'Your location has not been acquired yet. Please wait a moment and try again.');
+      return;
+    }
+
+    const lat = location.latitude;
+    const lng = location.longitude;
+    const appleMapsUrl = `https://maps.apple.com/?q=${lat},${lng}`;
+    const googleMapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
+    const messageText = `I've fallen and I need help! My location:\nApple Maps: ${appleMapsUrl}\nGoogle Maps: ${googleMapsUrl}\nPlease come help me as soon as possible!`;
+
+    // Fetch contacts so we can open SMS pre-addressed to them
+    let phones: string[] = [];
+    if (user) {
+      try {
+        const snap = await getDocs(collection(db, 'users', user.uid, 'contacts'));
+        phones = snap.docs.map(d => (d.data() as any).phone).filter(Boolean);
+      } catch (_) {}
+    }
+
+    if (phones.length > 0) {
+      // Open native Messages app pre-addressed to all contacts with the location
+      const phonePart = phones.join(',');
+      const sep = Platform.OS === 'ios' ? '&' : '?';
+      const smsUrl = `sms:${phonePart}${sep}body=${encodeURIComponent(messageText)}`;
+      const canOpen = await Linking.canOpenURL(smsUrl);
+      if (canOpen) {
+        Linking.openURL(smsUrl);
+        return;
+      }
+    }
+
+    // Fallback: native share sheet (user can pick SMS, WhatsApp, etc.)
+    Share.share({ message: messageText });
+  }
 
   // Register push token whenever a user signs in
   useEffect(() => {
@@ -84,9 +122,6 @@ export default function App() {
           <Text style={styles.appName}>FallGuard</Text>
           <Text style={styles.appTagline}>Fall alert companion</Text>
         </View>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setSidebarVisible(true)}>
-          <Text style={styles.menuText}>☰</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -111,6 +146,28 @@ export default function App() {
             </Text>
           </View>
         </View>
+
+        {/* Location card — shown only when signed in */}
+        {user && (
+          <View style={styles.card}>
+            <View style={[styles.statusDot, location.latitude != null ? styles.statusDotOk : styles.statusDotGray]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statusLabel}>Your location</Text>
+              {location.error ? (
+                <Text style={[styles.statusText, { color: '#e74c3c' }]}>{location.error}</Text>
+              ) : location.latitude != null ? (
+                <Text style={styles.statusText}>
+                  {location.latitude.toFixed(5)}, {location.longitude!.toFixed(5)}
+                </Text>
+              ) : (
+                <Text style={styles.statusText}>Acquiring GPS…</Text>
+              )}
+            </View>
+            <TouchableOpacity style={styles.shareChip} onPress={shareLocation}>
+              <Text style={styles.shareChipText}>SOS</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* User card */}
         <View style={styles.userCard}>
@@ -150,12 +207,12 @@ export default function App() {
             </View>
 
             {/* Quick actions */}
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#16a085' }]} onPress={() => router.push('/contacts')}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/contacts')}>
               <Text style={styles.actionText}>Monitored contacts</Text>
               <Text style={styles.actionHint}>Add people whose falls you want to be alerted about</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#e67e22' }]} onPress={() => router.push('/alerts')}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/alerts')}>
               <View style={styles.actionRow}>
                 <Text style={styles.actionText}>Alert history</Text>
                 {alertCount > 0 && (
@@ -167,12 +224,17 @@ export default function App() {
               <Text style={styles.actionHint}>View all past fall alerts received</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#8e44ad' }]} onPress={() => router.push('/fall-map')}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/fall-map')}>
               <Text style={styles.actionText}>Fall map</Text>
               <Text style={styles.actionHint}>See where falls occurred on a map</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#e74c3c' }]} onPress={() => signOutUser()}>
+            <TouchableOpacity style={styles.actionButtonPrimary} onPress={shareLocation}>
+              <Text style={styles.actionTextPrimary}>I fell — alert my contacts</Text>
+              <Text style={styles.actionHintPrimary}>Sends an emergency SMS with your location to all your contacts</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionButton} onPress={() => signOutUser()}>
               <Text style={styles.actionText}>Sign out</Text>
               <Text style={styles.actionHint}>End your session</Text>
             </TouchableOpacity>
@@ -190,12 +252,12 @@ export default function App() {
               </Text>
             </View>
 
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#3498db' }]} onPress={() => router.push('/login')}>
-              <Text style={styles.actionText}>Sign in</Text>
-              <Text style={styles.actionHint}>Access your account</Text>
+            <TouchableOpacity style={styles.actionButtonPrimary} onPress={() => router.push('/login')}>
+              <Text style={styles.actionTextPrimary}>Sign in</Text>
+              <Text style={styles.actionHintPrimary}>Access your account</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9b59b6' }]} onPress={() => router.push('/register')}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/register')}>
               <Text style={styles.actionText}>Create an account</Text>
               <Text style={styles.actionHint}>Register to start receiving fall alerts</Text>
             </TouchableOpacity>
@@ -203,99 +265,59 @@ export default function App() {
         )}
       </ScrollView>
 
-      {/* Sidebar */}
-      <Modal transparent visible={sidebarVisible} animationType="slide">
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setSidebarVisible(false)} />
-        <View style={styles.sidebar}>
-          <Text style={styles.sidebarTitle}>FallGuard</Text>
-          <Text style={styles.sidebarSubtitle}>Fall alert companion</Text>
-          {!user ? (
-            <>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#3498db' }]} onPress={() => { setSidebarVisible(false); router.push('/login'); }}>
-                <Text style={styles.sidebarItemText}>Sign In</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#9b59b6' }]} onPress={() => { setSidebarVisible(false); router.push('/register'); }}>
-                <Text style={styles.sidebarItemText}>Register</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#16a085' }]} onPress={() => { setSidebarVisible(false); router.push('/contacts'); }}>
-                <Text style={styles.sidebarItemText}>Monitored Contacts</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#e67e22' }]} onPress={() => { setSidebarVisible(false); router.push('/alerts'); }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={styles.sidebarItemText}>Alert History</Text>
-                  {alertCount > 0 && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{alertCount}</Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#8e44ad' }]} onPress={() => { setSidebarVisible(false); router.push('/fall-map'); }}>
-                <Text style={styles.sidebarItemText}>Fall Map</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#3498db' }]} onPress={() => { setSidebarVisible(false); router.push('/profile'); }}>
-                <Text style={styles.sidebarItemText}>View Profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.sidebarItem, { backgroundColor: '#e74c3c' }]} onPress={() => { setSidebarVisible(false); signOutUser(); }}>
-                <Text style={styles.sidebarItemText}>Sign Out</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4f8', padding: 20, paddingTop: 60 },
+  // ─── Layout ────────────────────────────────────────────────────────────────
+  container: { flex: 1, backgroundColor: '#fff', padding: 20, paddingTop: 60 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  appName: { fontSize: 26, fontWeight: '800', color: '#2c3e50', letterSpacing: 0.5 },
-  appTagline: { fontSize: 12, color: '#95a5a6', marginTop: 2 },
-  menuButton: { padding: 4, marginTop: 4 },
-  menuText: { fontSize: 26, color: '#2c3e50' },
-
-  alertBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdecea', borderRadius: 14, padding: 14, marginBottom: 14, borderLeftWidth: 4, borderLeftColor: '#e74c3c' },
+  appName: { fontSize: 26, fontWeight: '800', color: '#111', letterSpacing: 0.5 },
+  appTagline: { fontSize: 12, color: '#999', marginTop: 2 },
+  // ─── Alert banner (keep red — it's an emergency indicator) ─────────────────
+  alertBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff5f5', borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 1.5, borderColor: '#e74c3c' },
   alertBannerIcon: { fontSize: 22 },
   alertBannerTitle: { fontWeight: '700', color: '#c0392b', fontSize: 15 },
   alertBannerTime: { fontSize: 13, color: '#e74c3c', marginTop: 2 },
 
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
-  statusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
+  // ─── Status / location cards ───────────────────────────────────────────────
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1.5, borderColor: '#e8e8e8' },
+  statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   statusDotOk: { backgroundColor: '#27ae60' },
   statusDotAlert: { backgroundColor: '#e74c3c' },
-  statusLabel: { fontSize: 12, color: '#95a5a6', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statusText: { fontSize: 15, fontWeight: '600', color: '#2c3e50', marginTop: 2 },
+  statusDotGray: { backgroundColor: '#ccc' },
+  statusLabel: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.6 },
+  statusText: { fontSize: 14, fontWeight: '600', color: '#111', marginTop: 2 },
+  shareChip: { borderWidth: 1.5, borderColor: '#111', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 },
+  shareChipText: { color: '#111', fontWeight: '600', fontSize: 13 },
 
-  userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#dfe6e9', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 18, fontWeight: '700', color: '#2d3436' },
-  userLabel: { fontSize: 11, color: '#95a5a6', textTransform: 'uppercase', letterSpacing: 0.5 },
-  userEmail: { fontSize: 14, fontWeight: '600', color: '#2c3e50', marginTop: 2 },
-  profileChip: { backgroundColor: '#eaf4fd', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
-  profileChipText: { color: '#3498db', fontWeight: '600', fontSize: 13 },
+  // ─── User card ─────────────────────────────────────────────────────────────
+  userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 20, borderWidth: 1.5, borderColor: '#e8e8e8' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  userLabel: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 },
+  userEmail: { fontSize: 14, fontWeight: '600', color: '#111', marginTop: 2 },
+  profileChip: { borderWidth: 1.5, borderColor: '#111', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 },
+  profileChipText: { color: '#111', fontWeight: '600', fontSize: 13 },
 
-  infoCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
-  infoTitle: { fontSize: 14, fontWeight: '700', color: '#2c3e50', marginBottom: 12 },
+  // ─── Info card ─────────────────────────────────────────────────────────────
+  infoCard: { backgroundColor: '#fafafa', borderRadius: 12, padding: 16, marginBottom: 14, borderWidth: 1.5, borderColor: '#e8e8e8' },
+  infoTitle: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   infoStep: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  infoStepNum: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#16a085', color: '#fff', fontWeight: '700', fontSize: 12, textAlign: 'center', lineHeight: 22, marginRight: 10, marginTop: 1 },
+  infoStepNum: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#111', color: '#fff', fontWeight: '700', fontSize: 12, textAlign: 'center', lineHeight: 22, marginRight: 10, marginTop: 1 },
   infoStepText: { flex: 1, fontSize: 14, color: '#555', lineHeight: 20 },
   infoBody: { fontSize: 14, color: '#555', lineHeight: 21 },
 
-  actionButton: { padding: 18, borderRadius: 14, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3 },
+  // ─── Action buttons (outlined) ─────────────────────────────────────────────
+  actionButton: { padding: 18, borderRadius: 12, marginBottom: 10, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#111' },
+  actionButtonPrimary: { padding: 18, borderRadius: 12, marginBottom: 10, backgroundColor: '#111' },
   actionRow: { flexDirection: 'row', alignItems: 'center' },
-  actionText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  actionHint: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 },
-  badge: { backgroundColor: '#fff', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 },
-  badgeText: { color: '#e67e22', fontSize: 11, fontWeight: '800' },
+  actionText: { color: '#111', fontWeight: '700', fontSize: 16 },
+  actionTextPrimary: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  actionHint: { color: '#666', fontSize: 12, marginTop: 3 },
+  actionHintPrimary: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 3 },
+  badge: { backgroundColor: '#111', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
 
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sidebar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 260, padding: 24, paddingTop: 60, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 2, height: 0 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 10 },
-  sidebarTitle: { fontSize: 20, fontWeight: '800', color: '#2c3e50' },
-  sidebarSubtitle: { fontSize: 12, color: '#95a5a6', marginBottom: 24, marginTop: 2 },
-  sidebarItem: { padding: 14, borderRadius: 10, marginBottom: 10 },
-  sidebarItemText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

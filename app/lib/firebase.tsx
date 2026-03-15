@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { doc, getFirestore, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+
 // Firebase project config (from your google-services JSON).
 const firebaseConfig = {
   apiKey: 'AIzaSyDwbc1qk0irgEf85mBxBzv0r07U6ERG6UI',
@@ -49,4 +50,9 @@ export async function saveUserProfile(opts: {
 
   await setDoc(ref, payload, { merge: true });
   return payload;
+}
+
+export async function saveUserLocation(uid: string, latitude: number, longitude: number) {
+  const ref = doc(db, 'users', uid);
+  await setDoc(ref, { latitude, longitude, locationUpdatedAt: serverTimestamp() }, { merge: true });
 }
