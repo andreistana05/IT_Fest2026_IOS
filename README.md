@@ -1,50 +1,146 @@
-# Welcome to your Expo app 👋
+# FallDetector — iOS Companion App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+FallDetector is a two-part fall-detection system. The **Android app** (separate repository) runs on the device of the person at risk — it continuously monitors accelerometer data and detects falls in real time. This repository contains the **iOS companion app**, which receives instant alerts when a fall is detected and lets the user send an emergency SOS with their GPS location.
 
-## Get started
+---
 
-1. Install dependencies
+## How it works
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+Android device (person at risk)
+        │
+        │  fall detected → POST /alert  {phone, lat, lng, …}
+        ▼
+   Node.js server
+        │
+        │  looks up phone_index/{phone} in Firestore
+        │  writes alert to users/{uid}/alerts  for every follower
+        │  sends Expo push notification to each follower's device
+        ▼
+   iOS companion app  ←─ push notification + Firestore live listener
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+1. The person at risk carries an Android phone with the FallDetector Android app installed. Their phone number is registered in the system.
+2. When a fall is detected, the Android app calls the server's `/alert` endpoint with the phone number and GPS coordinates.
+3. The server looks up who is monitoring that phone number (`phone_index` collection in Firestore) and writes an alert document to each follower's subcollection.
+4. Each follower receives a push notification on their iOS device and can see the alert in the app immediately.
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## Features
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Alert monitoring
+- Receive instant push notifications when someone you monitor has a fall detected on their Android device.
+- A red banner appears at the top of the home screen with the time of the last alert.
+- All received alerts are stored and viewable in the **Alert History** screen.
 
-## Join the community
+### Fall map
+- Tap **Fall Map** to see every recorded fall plotted on an interactive map with GPS pins.
 
-Join our community of developers creating universal apps.
+### SOS — I fell
+- If you yourself have fallen and need help, tap **I fell — alert my contacts**.
+- The app fetches your saved emergency contacts from Firestore, composes a message with your current GPS coordinates (Apple Maps + Google Maps links), and opens the native Messages app pre-addressed to all your contacts at once using `expo-sms`.
+- Your location is also saved to your own alert history.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Contacts management
+- Add the phone numbers of the people you want to monitor under **Monitored contacts**.
+- Each number is indexed in Firestore so the server knows to route alerts to you when that person falls.
+- Use the **Check** button to verify whether a number is correctly registered in the system.
+- Remove contacts at any time; the index is cleaned up automatically.
+
+### Live location tracking
+- Your current GPS coordinates are displayed on the home screen and updated continuously while the app is open.
+- Location is also saved to your Firestore profile so others can see your last known position.
+
+### User profile
+- View and edit your display name, phone number, and profile photo.
+- Your phone number is what other iOS users enter when they want to monitor you.
+
+---
+
+## Architecture
+
+| Layer | Technology |
+|---|---|
+| iOS app | React Native + Expo (SDK 54), Expo Router |
+| Push notifications | Expo Push Notification Service |
+| Backend | Node.js + Express (`/server`) |
+| Database | Firebase Firestore |
+| Auth | Firebase Authentication |
+| Storage | Firebase Storage (profile photos) |
+
+### Firestore structure
+
+```
+users/
+  {uid}/
+    email, name, phone, fcmToken, photoURL, lastLatitude, lastLongitude
+    contacts/      ← people this user monitors (their phone numbers)
+    alerts/        ← fall alerts received by this user
+
+phone_index/
+  {normalised_phone}/
+    followers: [uid, uid, …]   ← UIDs of everyone monitoring this number
+```
+
+### Server endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/alert` | Receive a fall event from an Android device, fan out to all followers |
+| POST | `/register-token` | Register an Expo push token (legacy, in-memory) |
+| POST | `/send-notification` | Broadcast a push to all in-memory tokens (legacy) |
+
+---
+
+## Getting started
+
+### Prerequisites
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- An iOS device or simulator (push notifications require a physical device)
+- A Firebase project with Firestore, Authentication, and Storage enabled
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/andreistana05/IT_Fest2026_IOS.git
+cd IT_Fest2026_IOS
+npm install
+```
+
+### 2. Configure Firebase
+
+The Firebase config is already set in `app/lib/firebase.tsx`. If you are using your own Firebase project, replace the `firebaseConfig` object with your own credentials.
+
+### 3. Start the app
+
+```bash
+npx expo start
+```
+
+Scan the QR code with **Expo Go** (limited — push notifications won't work) or build a development client:
+
+```bash
+npx expo run:ios
+```
+
+### 4. Start the server
+
+```bash
+cd server
+npm install
+node index.js
+```
+
+The server listens on port `3001` by default. The Android app must be configured to point to this server's public URL.
+
+---
+
+## Usage guide
+
+1. **Create an account** — register with your email, password, and phone number. Your phone number is how the Android app identifies you as someone to alert.
+2. **Add contacts to monitor** — go to **Monitored contacts** and enter the phone numbers of people who have the Android app installed. Their number must match what is registered on their device (include the country code, e.g. `+40712345678`).
+3. **Enable push notifications** — the app will request permission on first launch. This is required to receive fall alerts.
+4. **Wait for alerts** — if anyone you monitor falls, you will receive a push notification immediately. The alert banner will appear on the home screen and the event will be saved to your alert history.
+5. **Send SOS** — if you have fallen yourself, tap **I fell — alert my contacts**. Your GPS location will be sent by SMS to all your saved contacts instantly.
