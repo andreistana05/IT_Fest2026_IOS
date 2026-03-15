@@ -63,12 +63,11 @@ export default function App() {
       }).catch(() => {});
     }
 
-    if (phones.length > 0) {
-      const isAvailable = await SMS.isAvailableAsync();
-      if (isAvailable) {
-        await SMS.sendSMSAsync(phones, messageText);
-        return;
+    if (phones.length > 0 && await SMS.isAvailableAsync()) {
+      for (const phone of phones) {
+        await SMS.sendSMSAsync([phone], messageText);
       }
+      return;
     }
 
     // Fallback: native share sheet (user can pick SMS, WhatsApp, etc.)
