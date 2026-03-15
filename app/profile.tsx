@@ -1,59 +1,18 @@
-import * as ImagePicker from 'expo-image-picker';
-import { doc, getDoc } from 'firebase/firestore';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { updateProfile } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from './lib/auth';
-import { db, saveUserProfile, storage } from './lib/firebase';
+import { auth, db, saveUserProfile } from './lib/firebase';
 
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOutUser } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  async function pickImage() {
-    try {
-      if (!user) {
-        alert('You must be signed in to upload a profile picture.');
-        return;
-      }
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (perm.status !== 'granted') {
-        alert('Permission to access photos is required.');
-        return;
-      }
-
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
-        allowsEditing: true,
-      });
-
-      const uri = (res as any).assets ? (res as any).assets[0]?.uri : (res as any).uri;
-      if (!uri) return;
-
-      setUploading(true);
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      const path = `profiles/${user.uid}/profile_${Date.now()}.jpg`;
-      const sref = storageRef(storage, path);
-      await uploadBytes(sref, blob);
-      const url = await getDownloadURL(sref);
-
-      await saveUserProfile({ uid: user.uid, photoURL: url });
-      setProfile((p: any) => ({ ...(p || {}), photoURL: url }));
-    } catch (e: any) {
-      console.warn('Image upload failed', e);
-      const code = e?.code || e?.status || 'unknown';
-      const message = e?.message || JSON.stringify(e);
-      const server = e?.serverResponse || e?.customData || null;
-      alert(`Upload failed: ${code} — ${message}` + (server ? `\nServer: ${JSON.stringify(server)}` : ''));
-    } finally {
-      setUploading(false);
-    }
-  }
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -68,18 +27,45 @@ export default function ProfileScreen() {
         const ref = doc(db, 'users', user.uid);
         const snap = await getDoc(ref);
         if (!mounted) return;
-        setProfile(snap.exists() ? snap.data() : null);
+        if (snap.exists()) {
+          setProfile(snap.data());
+        } else {
+          // Registration write never reached Firestore — seed it now from Auth data
+          const seed = await saveUserProfile({ uid: user.uid, email: user.email, name: user.displayName });
+          if (mounted) setProfile(seed);
+        }
       } catch (e) {
         console.warn('Failed to load profile', e);
-        setProfile(null);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
 
     load();
     return () => { mounted = false; };
   }, [user]);
+
+  async function saveEdits() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const ref = doc(db, 'users', user.uid);
+      const snap = await getDoc(ref);
+      const updates = { name: editName.trim() || null, phone: editPhone.trim() || null };
+      if (snap.exists()) {
+        await updateDoc(ref, updates);
+      } else {
+        await saveUserProfile({ uid: user.uid, email: user.email, name: updates.name, phone: updates.phone });
+      }
+      if (editName.trim()) await updateProfile(auth.currentUser!, { displayName: editName.trim() });
+      setProfile((p: any) => ({ ...(p || {}), ...updates }));
+      setEditing(false);
+    } catch (e: any) {
+      Alert.alert('Save failed', e?.message || 'Unknown error');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (authLoading) return <ActivityIndicator style={styles.center} />;
 
@@ -107,27 +93,37 @@ export default function ProfileScreen() {
         <ActivityIndicator style={{ marginTop: 40 }} />
       ) : (
         <>
-          {/* Avatar section */}
+          {/* Avatar */}
           <View style={styles.avatarSection}>
-            {profile?.photoURL ? (
-              <Image source={{ uri: profile.photoURL }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitials}>{initials}</Text>
-              </View>
-            )}
-            <TouchableOpacity style={styles.changePhotoButton} onPress={pickImage} disabled={uploading}>
-              <Text style={styles.changePhotoText}>{uploading ? 'Uploading...' : 'Change photo'}</Text>
-            </TouchableOpacity>
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitials}>{initials}</Text>
+            </View>
           </View>
 
           {/* Info card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Account details</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Account details</Text>
+              {!editing && (
+                <TouchableOpacity onPress={() => { setEditName(profile?.name ?? user.displayName ?? ''); setEditPhone(profile?.phone ?? ''); setEditing(true); }}>
+                  <Text style={styles.editLink}>Edit</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Full name</Text>
-              <Text style={styles.fieldValue}>{profile?.name ?? user.displayName ?? '—'}</Text>
+              {editing ? (
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Enter your full name"
+                  placeholderTextColor="#bbb"
+                />
+              ) : (
+                <Text style={styles.fieldValue}>{profile?.name ?? user.displayName ?? '—'}</Text>
+              )}
             </View>
 
             <View style={styles.separator} />
@@ -141,7 +137,18 @@ export default function ProfileScreen() {
 
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Phone number</Text>
-              <Text style={styles.fieldValue}>{profile?.phone ?? '—'}</Text>
+              {editing ? (
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="e.g. +40712345678"
+                  placeholderTextColor="#bbb"
+                  keyboardType="phone-pad"
+                />
+              ) : (
+                <Text style={styles.fieldValue}>{profile?.phone ?? '—'}</Text>
+              )}
             </View>
 
             <View style={styles.separator} />
@@ -150,6 +157,17 @@ export default function ProfileScreen() {
               <Text style={styles.fieldLabel}>Member since</Text>
               <Text style={styles.fieldValue}>{formatTimestamp(profile?.createdAt)}</Text>
             </View>
+
+            {editing && (
+              <View style={styles.editActions}>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setEditing(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={saveEdits} disabled={saving}>
+                  <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Sign out */}
@@ -171,24 +189,34 @@ function formatTimestamp(t: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, flexGrow: 1, backgroundColor: '#f0f4f8' },
+  container: { padding: 24, flexGrow: 1, backgroundColor: '#fff' },
   center: { flex: 1, justifyContent: 'center' },
-  pageTitle: { fontSize: 24, fontWeight: '800', color: '#2c3e50', marginBottom: 20 },
-  notSignedIn: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f4f8' },
-  notSignedInTitle: { fontSize: 20, fontWeight: '700', color: '#2c3e50', marginBottom: 8 },
-  notSignedInText: { fontSize: 15, color: '#7f8c8d', textAlign: 'center' },
+  pageTitle: { fontSize: 24, fontWeight: '800', color: '#111', marginBottom: 20 },
+  notSignedIn: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  notSignedInTitle: { fontSize: 20, fontWeight: '700', color: '#111', marginBottom: 8 },
+  notSignedInText: { fontSize: 15, color: '#999', textAlign: 'center' },
+
   avatarSection: { alignItems: 'center', marginBottom: 24 },
-  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#e1e1e1', marginBottom: 12 },
-  avatarPlaceholder: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#dfe6e9', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  avatarInitials: { fontSize: 32, fontWeight: '700', color: '#2d3436' },
-  changePhotoButton: { backgroundColor: '#3498db', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20 },
-  changePhotoText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 },
-  cardTitle: { fontSize: 12, fontWeight: '700', color: '#95a5a6', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 16 },
-  fieldRow: { paddingVertical: 8 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#95a5a6', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
-  fieldValue: { fontSize: 16, color: '#2c3e50', fontWeight: '500' },
-  separator: { height: 1, backgroundColor: '#ecf0f1' },
-  signOutButton: { backgroundColor: '#e74c3c', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  signOutText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  avatarInitials: { fontSize: 28, fontWeight: '700', color: '#fff' },
+
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 16, borderWidth: 1.5, borderColor: '#e8e8e8' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  cardTitle: { fontSize: 11, fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: 0.8 },
+  editLink: { fontSize: 14, fontWeight: '600', color: '#111' },
+
+  fieldRow: { paddingVertical: 10 },
+  fieldLabel: { fontSize: 11, fontWeight: '600', color: '#999', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 },
+  fieldValue: { fontSize: 16, color: '#111', fontWeight: '500' },
+  fieldInput: { fontSize: 16, color: '#111', fontWeight: '500', borderBottomWidth: 1.5, borderBottomColor: '#111', paddingVertical: 4 },
+  separator: { height: 1, backgroundColor: '#f0f0f0' },
+
+  editActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  cancelButton: { flex: 1, padding: 13, borderRadius: 10, borderWidth: 1.5, borderColor: '#111', alignItems: 'center' },
+  cancelText: { color: '#111', fontWeight: '600', fontSize: 15 },
+  saveButton: { flex: 1, padding: 13, borderRadius: 10, backgroundColor: '#111', alignItems: 'center' },
+  saveText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  signOutButton: { padding: 16, borderRadius: 12, borderWidth: 1.5, borderColor: '#111', alignItems: 'center', marginTop: 8 },
+  signOutText: { color: '#111', fontWeight: '700', fontSize: 16 },
 });

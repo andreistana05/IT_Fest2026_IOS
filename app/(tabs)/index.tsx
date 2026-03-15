@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as SMS from 'expo-sms';
 import { useRouter } from 'expo-router';
-import { collection, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocationTracking } from '../../hooks/useLocationTracking';
@@ -40,7 +40,24 @@ export default function App() {
     const lng = location.longitude;
     const appleMapsUrl = `https://maps.apple.com/?q=${lat},${lng}`;
     const googleMapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
-    const messageText = `I've fallen and I need help! My location:\nApple Maps: ${appleMapsUrl}\nGoogle Maps: ${googleMapsUrl}\nPlease come help me as soon as possible!`;
+
+    // Fetch medical info to include in SOS if available
+    let medicalSection = '';
+    if (user) {
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          const parts: string[] = [];
+          if (data.medicalConditions) parts.push(`Medical conditions: ${data.medicalConditions}`);
+          if (data.allergies) parts.push(`Allergies: ${data.allergies}`);
+          if (data.medication) parts.push(`Medication: ${data.medication}`);
+          if (parts.length > 0) medicalSection = `\n\nMedical info:\n${parts.join('\n')}`;
+        }
+      } catch (_) {}
+    }
+
+    const messageText = `I've fallen and I need help! My location:\nApple Maps: ${appleMapsUrl}\nGoogle Maps: ${googleMapsUrl}\nPlease come help me as soon as possible!${medicalSection}`;
 
     // Fetch contacts so we can open SMS pre-addressed to them
     let phones: string[] = [];

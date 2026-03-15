@@ -54,5 +54,18 @@ export async function saveUserProfile(opts: {
 
 export async function saveUserLocation(uid: string, latitude: number, longitude: number) {
   const ref = doc(db, 'users', uid);
-  await setDoc(ref, { latitude, longitude, locationUpdatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(ref, { lastLatitude: latitude, lastLongitude: longitude }, { merge: true });
+}
+
+export async function saveMedicalRecord(uid: string, opts: {
+  medicalConditions?: string | null;
+  allergies?: string | null;
+  medication?: string | null;
+}) {
+  const ref = doc(db, 'users', uid);
+  await setDoc(ref, {
+    medicalConditions: opts.medicalConditions ?? null,
+    allergies: opts.allergies ?? null,
+    medication: opts.medication ?? null,
+  }, { merge: true });
 }
