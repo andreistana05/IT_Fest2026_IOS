@@ -17,7 +17,7 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'FallGuard' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'FallDetector' }} />
           <Stack.Screen name="login" options={{ title: 'Sign In' }} />
           <Stack.Screen name="register" options={{ title: 'Create Account' }} />
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />

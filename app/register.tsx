@@ -52,7 +52,7 @@ export default function Register() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.appName}>FallGuard</Text>
+          <Text style={styles.appName}>FallDetector</Text>
           <Text style={styles.subtitle}>Create your alert account</Text>
         </View>
 
@@ -139,23 +139,23 @@ export default function Register() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: '#f0f4f8' },
+  container: { flexGrow: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
   header: { alignItems: 'center', marginBottom: 28 },
-  appName: { fontSize: 32, fontWeight: '800', color: '#2c3e50', letterSpacing: 0.5 },
-  subtitle: { fontSize: 16, color: '#7f8c8d', marginTop: 6 },
-  form: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: '#95a5a6', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
-  divider: { height: 1, backgroundColor: '#ecf0f1', marginVertical: 16 },
+  appName: { fontSize: 32, fontWeight: '800', color: '#111', letterSpacing: 0.5 },
+  subtitle: { fontSize: 16, color: '#999', marginTop: 6 },
+  form: { backgroundColor: '#fff', borderRadius: 12, padding: 20, borderWidth: 1.5, borderColor: '#e8e8e8' },
+  sectionTitle: { fontSize: 11, fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+  divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 16 },
   fieldGroup: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: '#34495e', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
-  required: { color: '#e74c3c' },
-  input: { backgroundColor: '#f7f9fb', padding: 14, borderRadius: 10, fontSize: 16, color: '#111', borderWidth: 1.5, borderColor: '#dce1e7', lineHeight: 20 },
-  inputFocused: { borderColor: '#2ecc71', backgroundColor: '#fff' },
-  hint: { fontSize: 12, color: '#95a5a6', marginTop: 5 },
-  button: { backgroundColor: '#2ecc71', padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 8 },
-  buttonDisabled: { opacity: 0.7 },
+  label: { fontSize: 11, fontWeight: '700', color: '#999', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.6 },
+  required: { color: '#111' },
+  input: { backgroundColor: '#fafafa', padding: 14, borderRadius: 10, fontSize: 16, color: '#111', borderWidth: 1.5, borderColor: '#e8e8e8', lineHeight: 20 },
+  inputFocused: { borderColor: '#111', backgroundColor: '#fff' },
+  hint: { fontSize: 12, color: '#bbb', marginTop: 5 },
+  button: { backgroundColor: '#111', padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  buttonDisabled: { opacity: 0.5 },
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24 },
-  footerText: { color: '#7f8c8d', fontSize: 14 },
-  link: { color: '#2ecc71', fontWeight: '600', fontSize: 14 },
+  footerText: { color: '#999', fontSize: 14 },
+  link: { color: '#111', fontWeight: '700', fontSize: 14 },
 });

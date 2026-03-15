@@ -173,7 +173,7 @@ export default function App() {
       {/* Header */}
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.appName}>FallGuard</Text>
+          <Text style={styles.appName}>FallDetector</Text>
           <Text style={styles.appTagline}>Fall alert companion</Text>
         </View>
       </View>
@@ -245,7 +245,7 @@ export default function App() {
           <>
             {/* How it works */}
             <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>How FallGuard works</Text>
+              <Text style={styles.infoTitle}>How FallDetector works</Text>
               <View style={styles.infoStep}>
                 <Text style={styles.infoStepNum}>1</Text>
                 <Text style={styles.infoStepText}>Your loved one uses the Android app, which continuously monitors for falls.</Text>
@@ -297,9 +297,9 @@ export default function App() {
           <>
             {/* Not signed in — explain the app */}
             <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>What is FallGuard?</Text>
+              <Text style={styles.infoTitle}>What is FallDetector?</Text>
               <Text style={styles.infoBody}>
-                FallGuard alerts you the moment a family member or close friend falls. The Android app on their device detects the fall and immediately sends an SMS to their emergency contacts — including you.
+                FallDetector alerts you the moment a family member or close friend falls. The Android app on their device detects the fall and immediately sends an SMS to their emergency contacts — including you.
               </Text>
               <Text style={[styles.infoBody, { marginTop: 8 }]}>
                 Sign in or create an account to start monitoring the people you care about.
