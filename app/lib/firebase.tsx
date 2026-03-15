@@ -31,22 +31,21 @@ export async function saveUserProfile(opts: {
   photoURL?: string | null;
   createdAt?: number | any;
 }) {
-  const { uid, email = null, name = null, phone = null, fcmToken = null, photoURL = null, createdAt } = opts;
+  const { uid, createdAt } = opts;
   const ref = doc(db, 'users', uid);
 
   const createdAtValue = typeof createdAt === 'number' && createdAt > 0
     ? Timestamp.fromMillis(createdAt)
     : serverTimestamp();
 
-  const payload = {
-    uid,
-    email,
-    name,
-    phone,
-    fcmToken,
-    photoURL,
-    createdAt: createdAtValue,
-  } as any;
+  // Only write fields that were explicitly provided — avoids overwriting
+  // existing data (e.g. phone) when only fcmToken is being updated.
+  const payload: any = { uid, createdAt: createdAtValue };
+  if ('email' in opts) payload.email = opts.email ?? null;
+  if ('name' in opts) payload.name = opts.name ?? null;
+  if ('phone' in opts) payload.phone = opts.phone ?? null;
+  if ('fcmToken' in opts) payload.fcmToken = opts.fcmToken ?? null;
+  if ('photoURL' in opts) payload.photoURL = opts.photoURL ?? null;
 
   await setDoc(ref, payload, { merge: true });
   return payload;
