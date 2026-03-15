@@ -44,6 +44,18 @@ export default function ContactsScreen() {
       } catch (e) {
         await setDoc(idxRef, { followers: [user.uid] }, { merge: true });
       }
+
+      // Add current user to the phone owner's emergencyContacts array
+      const ownerQuery = query(collection(db, 'users'), where('phone', '==', p));
+      const ownerSnap = await getDocs(ownerQuery);
+      // Also try normalised form if no match
+      const ownerDocs = ownerSnap.empty && norm !== p
+        ? (await getDocs(query(collection(db, 'users'), where('phone', '==', norm)))).docs
+        : ownerSnap.docs;
+      for (const ownerDoc of ownerDocs) {
+        await updateDoc(ownerDoc.ref, { emergencyContacts: arrayUnion(user.uid) });
+      }
+
       setName(''); setPhone('');
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to add contact');
@@ -98,6 +110,16 @@ export default function ContactsScreen() {
           await updateDoc(idxRef, { followers: arrayRemove(user.uid) });
         } catch (e) {
           // ignore
+        }
+
+        // Remove current user from the phone owner's emergencyContacts array
+        const ownerQuery = query(collection(db, 'users'), where('phone', '==', phoneVal));
+        const ownerSnap = await getDocs(ownerQuery);
+        const ownerDocs = ownerSnap.empty && norm !== phoneVal
+          ? (await getDocs(query(collection(db, 'users'), where('phone', '==', norm)))).docs
+          : ownerSnap.docs;
+        for (const ownerDoc of ownerDocs) {
+          await updateDoc(ownerDoc.ref, { emergencyContacts: arrayRemove(user.uid) });
         }
       }
     } catch (e: any) {
