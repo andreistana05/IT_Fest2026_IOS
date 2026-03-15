@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as SMS from 'expo-sms';
 import { useRouter } from 'expo-router';
-import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocationTracking } from '../../hooks/useLocationTracking';
@@ -41,13 +41,17 @@ export default function App() {
     const appleMapsUrl = `https://maps.apple.com/?q=${lat},${lng}`;
     const googleMapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
 
-    // Fetch medical info to include in SOS if available
+    // Fetch user profile (name, phone, medical info) for SOS message and alert fan-out
     let medicalSection = '';
+    let userName: string = user?.email ?? 'Unknown';
+    let userPhone: string | null = null;
     if (user) {
       try {
         const snap = await getDoc(doc(db, 'users', user.uid));
         if (snap.exists()) {
           const data = snap.data() as any;
+          if (data.name) userName = data.name;
+          if (data.phone) userPhone = data.phone;
           const parts: string[] = [];
           if (data.medicalConditions) parts.push(`Medical conditions: ${data.medicalConditions}`);
           if (data.allergies) parts.push(`Allergies: ${data.allergies}`);
@@ -78,6 +82,25 @@ export default function App() {
         latitude: lat,
         longitude: lng,
       }).catch(() => {});
+    }
+
+    // Fan out alert to followers (people monitoring this user) in Firestore
+    if (user && userPhone) {
+      try {
+        const norm = userPhone.replace(/[^0-9+]/g, '');
+        const idxSnap = await getDoc(doc(db, 'phone_index', norm));
+        const followers: string[] = idxSnap.exists() ? (idxSnap.data().followers || []) : [];
+        await Promise.all(followers.map(followerUid =>
+          addDoc(collection(db, 'users', followerUid, 'alerts'), {
+            contactName: userName,
+            contactPhone: userPhone,
+            message: messageText,
+            receivedAt: Date.now(),
+            latitude: lat,
+            longitude: lng,
+          }).catch(() => {})
+        ));
+      } catch (_) {}
     }
 
     if (phones.length > 0 && await SMS.isAvailableAsync()) {

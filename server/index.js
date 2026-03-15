@@ -74,11 +74,11 @@ app.post('/alert', async (req, res) => {
     if (followers.length === 0) return res.json({ ok: true, routed: 0 });
 
     const payload = {
-      phone: norm,
-      callerName: callerName || null,
+      contactPhone: norm,
+      contactName: callerName || null,
       message: message || null,
-      location: location || null,
-      coords: lat && lng ? { lat, lng } : null,
+      latitude: lat ? Number(lat) : null,
+      longitude: lng ? Number(lng) : null,
       receivedAt: serverTimestamp(),
       source: 'webhook',
     };
