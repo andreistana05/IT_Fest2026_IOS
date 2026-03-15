@@ -28,7 +28,16 @@ export default function ProfileScreen() {
         const snap = await getDoc(ref);
         if (!mounted) return;
         if (snap.exists()) {
-          setProfile(snap.data());
+          const data = snap.data();
+          setProfile(data);
+          // Heal fields that were wiped by the old push-token bug
+          const fixes: any = {};
+          if (!data.email && user.email) fixes.email = user.email;
+          if (!data.name && user.displayName) fixes.name = user.displayName;
+          if (Object.keys(fixes).length > 0) {
+            updateDoc(ref, fixes).catch(() => {});
+            if (mounted) setProfile((p: any) => ({ ...p, ...fixes }));
+          }
         } else {
           // Registration write never reached Firestore — seed it now from Auth data
           const seed = await saveUserProfile({ uid: user.uid, email: user.email, name: user.displayName });
