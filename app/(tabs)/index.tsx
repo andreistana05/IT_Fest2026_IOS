@@ -1,9 +1,10 @@
 import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
+import * as SMS from 'expo-sms';
 import { useRouter } from 'expo-router';
 import { collection, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocationTracking } from '../../hooks/useLocationTracking';
 import { saveAlert } from '../alerts';
 import { useAuth } from '../lib/auth';
@@ -104,13 +105,9 @@ export default function App() {
     }
 
     if (phones.length > 0) {
-      // Open native Messages app pre-addressed to all contacts with the location
-      const phonePart = phones.join(',');
-      const sep = Platform.OS === 'ios' ? '&' : '?';
-      const smsUrl = `sms:${phonePart}${sep}body=${encodeURIComponent(messageText)}`;
-      const canOpen = await Linking.canOpenURL(smsUrl);
-      if (canOpen) {
-        Linking.openURL(smsUrl);
+      const isAvailable = await SMS.isAvailableAsync();
+      if (isAvailable) {
+        await SMS.sendSMSAsync(phones, messageText);
         return;
       }
     }
