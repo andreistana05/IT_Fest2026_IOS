@@ -178,7 +178,7 @@ export default function FallMapScreen() {
           <Text style={styles.emptyIcon}>📍</Text>
           <Text style={styles.emptyTitle}>No location data yet</Text>
           <Text style={styles.emptyHint}>
-            Fall alerts that include GPS coordinates from the Android device will appear as pins on this map.
+            Fall alerts that include GPS coordinates will appear as pins on this map.
           </Text>
         </View>
       )}

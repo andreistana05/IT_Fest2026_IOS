@@ -203,7 +203,7 @@ export default function App() {
               <Text style={styles.infoTitle}>How FallDetector works</Text>
               <View style={styles.infoStep}>
                 <Text style={styles.infoStepNum}>1</Text>
-                <Text style={styles.infoStepText}>Your loved one uses the Android app, which continuously monitors for falls.</Text>
+                <Text style={styles.infoStepText}>Your loved one carries their phone, which continuously monitors for falls.</Text>
               </View>
               <View style={styles.infoStep}>
                 <Text style={styles.infoStepNum}>2</Text>
@@ -254,7 +254,7 @@ export default function App() {
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>What is FallDetector?</Text>
               <Text style={styles.infoBody}>
-                FallDetector alerts you the moment a family member or close friend falls. The Android app on their device detects the fall and immediately sends an SMS to their emergency contacts — including you.
+                FallDetector alerts you the moment a family member or close friend falls. Their device detects the fall and immediately notifies their emergency contacts — including you.
               </Text>
               <Text style={[styles.infoBody, { marginTop: 8 }]}>
                 Sign in or create an account to start monitoring the people you care about.

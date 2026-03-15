@@ -142,7 +142,7 @@ export default function ContactsScreen() {
               onFocus={() => setFocused('phone')}
               onBlur={() => setFocused(null)}
             />
-            <Text style={styles.hint}>Must match the number registered on their Android device — include country code</Text>
+            <Text style={styles.hint}>Must match the number registered on their device — include country code</Text>
           </View>
 
           <View style={styles.rowButtons}>
@@ -189,7 +189,7 @@ export default function ContactsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No one being monitored yet</Text>
-              <Text style={styles.emptyHint}>Add a person's phone number above. As soon as their Android device detects a fall, you'll receive an SMS alert.</Text>
+              <Text style={styles.emptyHint}>Add a person's phone number above. As soon as their device detects a fall, you'll receive an alert.</Text>
             </View>
           }
         />
