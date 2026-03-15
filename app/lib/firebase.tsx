@@ -27,7 +27,6 @@ export async function saveUserProfile(opts: {
   email?: string | null;
   name?: string | null;
   phone?: string | null;
-  fcmToken?: string | null;
   photoURL?: string | null;
   createdAt?: number | any;
 }) {
@@ -39,12 +38,11 @@ export async function saveUserProfile(opts: {
     : serverTimestamp();
 
   // Only write fields that were explicitly provided — avoids overwriting
-  // existing data (e.g. phone) when only fcmToken is being updated.
+  // existing data (e.g. phone) when only one field is being updated.
   const payload: any = { uid, createdAt: createdAtValue };
   if ('email' in opts) payload.email = opts.email ?? null;
   if ('name' in opts) payload.name = opts.name ?? null;
   if ('phone' in opts) payload.phone = opts.phone ?? null;
-  if ('fcmToken' in opts) payload.fcmToken = opts.fcmToken ?? null;
   if ('photoURL' in opts) payload.photoURL = opts.photoURL ?? null;
 
   await setDoc(ref, payload, { merge: true });

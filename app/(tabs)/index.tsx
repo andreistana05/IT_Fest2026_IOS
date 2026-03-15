@@ -1,31 +1,16 @@
-import * as Notifications from 'expo-notifications';
 import * as SMS from 'expo-sms';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocationTracking } from '../../hooks/useLocationTracking';
 import { saveAlert } from '../alerts';
 import { useAuth } from '../lib/auth';
 import { db } from '../lib/firebase';
-import { registerPushToken } from '../lib/push';
-
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
 
 export default function App() {
   const [lastAlert, setLastAlert] = useState<string | null>(null);
   const [alertCount, setAlertCount] = useState(0);
-  const notificationListener = useRef<any>(null);
-  const responseListener = useRef<any>(null);
   const router = useRouter();
   const { user, signOutUser, loading: authLoading } = useAuth();
   const location = useLocationTracking(user?.uid ?? null);
@@ -114,12 +99,6 @@ export default function App() {
     Share.share({ message: messageText });
   }
 
-  // Register push token whenever a user signs in
-  useEffect(() => {
-    if (!user) return;
-    registerPushToken(user.uid).catch(e => console.warn('[push] Registration failed', e));
-  }, [user?.uid]);
-
   // Live alert count badge
   useEffect(() => {
     if (!user) { setAlertCount(0); return; }
@@ -128,38 +107,6 @@ export default function App() {
     const unsub = onSnapshot(q, snap => setAlertCount(snap.size));
     return unsub;
   }, [user]);
-
-  useEffect(() => {
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data as any;
-      const body = notification.request.content.body;
-      setLastAlert(new Date().toLocaleTimeString());
-
-      if (user) {
-        saveAlert(user.uid, {
-          contactName: data?.contactName ?? null,
-          contactPhone: data?.contactPhone ?? null,
-          message: body ?? data?.message ?? null,
-          receivedAt: Date.now(),
-          latitude: typeof data?.latitude === 'number' ? data.latitude : null,
-          longitude: typeof data?.longitude === 'number' ? data.longitude : null,
-        }).catch(e => console.warn('Failed to save alert', e));
-      }
-    });
-
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
-      // handle tap on notification
-    });
-
-    return () => {
-      if (notificationListener.current && typeof notificationListener.current.remove === 'function') {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current && typeof responseListener.current.remove === 'function') {
-        responseListener.current.remove();
-      }
-    };
-  }, []);
 
   const initials = user?.email ? user.email[0].toUpperCase() : '?';
 

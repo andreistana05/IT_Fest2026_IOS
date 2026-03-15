@@ -1,5 +1,4 @@
 const express = require('express');
-const { Expo } = require('expo-server-sdk');
 const { initializeApp, getApps } = require('firebase/app');
 const { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } = require('firebase/firestore');
 
@@ -17,48 +16,6 @@ const db = getFirestore();
 
 const app = express();
 app.use(express.json());
-
-const expo = new Expo();
-const tokens = new Set();
-
-app.post('/register-token', (req, res) => {
-  const { token } = req.body || {};
-  if (!token) return res.status(400).json({ error: 'token required' });
-  tokens.add(token);
-  console.log('Registered token:', token);
-  res.json({ ok: true });
-});
-
-app.post('/send-notification', async (req, res) => {
-  if (tokens.size === 0) return res.status(400).json({ error: 'no tokens registered' });
-
-  const messages = [];
-  for (const pushToken of tokens) {
-    if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`Invalid token: ${pushToken}`);
-      continue;
-    }
-    messages.push({
-      to: pushToken,
-      sound: 'default',
-      body: 'Emergency: possible fall detected. Please check on the user.',
-      data: { type: 'fall_alert' },
-    });
-  }
-
-  const chunks = expo.chunkPushNotifications(messages);
-  const tickets = [];
-  try {
-    for (const chunk of chunks) {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(...ticketChunk);
-    }
-    res.json({ ok: true, tickets });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: String(error) });
-  }
-});
 
 // Receive a fall alert and fan it out to all followers in Firestore
 app.post('/alert', async (req, res) => {
