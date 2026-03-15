@@ -29,6 +29,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-contacts",
+        {
+          "contactsPermission": "FallGuard needs access to your contacts to verify emergency contact numbers."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "FallGuard uses your location to let you share it with your contacts via SMS."

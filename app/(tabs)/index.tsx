@@ -1,3 +1,4 @@
+import * as Contacts from 'expo-contacts';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { collection, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -8,6 +9,10 @@ import { saveAlert } from '../alerts';
 import { useAuth } from '../lib/auth';
 import { db } from '../lib/firebase';
 import { registerPushToken } from '../lib/push';
+
+function last9(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-9);
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -47,6 +52,55 @@ export default function App() {
         const snap = await getDocs(collection(db, 'users', user.uid, 'contacts'));
         phones = snap.docs.map(d => (d.data() as any).phone).filter(Boolean);
       } catch (_) {}
+    }
+
+    // Verify Firestore phones against device contacts
+    if (phones.length > 0) {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status === 'granted') {
+        const { data: deviceContacts } = await Contacts.getContactsAsync({
+          fields: [Contacts.Fields.PhoneNumbers],
+        });
+
+        // Build a set of last-9-digit strings from all device phone numbers
+        const devicePhoneSet = new Set<string>();
+        for (const contact of deviceContacts) {
+          if (contact.phoneNumbers) {
+            for (const pn of contact.phoneNumbers) {
+              if (pn.number) devicePhoneSet.add(last9(pn.number));
+            }
+          }
+        }
+
+        const unrecognised = phones.filter(p => !devicePhoneSet.has(last9(p)));
+
+        if (unrecognised.length > 0) {
+          const proceed = await new Promise<boolean>(resolve => {
+            Alert.alert(
+              'Unrecognised contacts',
+              `These numbers were not found in your device contacts:\n\n${unrecognised.join('\n')}\n\nSend the SOS anyway?`,
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Send anyway', style: 'destructive', onPress: () => resolve(true) },
+              ],
+            );
+          });
+          if (!proceed) return;
+        }
+      }
+      // If permission denied, fall through and send to all phones without blocking
+    }
+
+    // Save this SOS event to the user's own alert history
+    if (user) {
+      saveAlert(user.uid, {
+        contactName: 'You (SOS sent)',
+        contactPhone: null,
+        message: messageText,
+        receivedAt: Date.now(),
+        latitude: lat,
+        longitude: lng,
+      }).catch(() => {});
     }
 
     if (phones.length > 0) {
